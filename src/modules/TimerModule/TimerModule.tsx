@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Timer as TimerIcon, Clock, Pause, Play, RotateCcw, X, Atom as Tomato } from 'lucide-react';
+import { Timer as TimerIcon, Clock, Pause, Play, RotateCcw, X, Atom as Tomato, Square, CheckSquare } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import './TimerModule.css';
 
@@ -16,6 +16,7 @@ interface TimerState {
   pomodoroBreak: number; // in minutes
   pomodoroIsBreak: boolean;
   startTime?: string; // HH:MM format
+  date?: string; // YYYY-MM-DD format
 }
 
 const TimerModule: React.FC = () => {
@@ -35,9 +36,10 @@ const TimerModule: React.FC = () => {
   const startTimer = () => {
     if (timerTitle.trim() === '') return;
     
-    // Get current time in HH:MM format
+    // Get current time and date
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const currentDate = now.toISOString().split('T')[0];
     
     const newTimer: TimerState = {
       type: timerType,
@@ -49,7 +51,8 @@ const TimerModule: React.FC = () => {
       pomodoroWork,
       pomodoroBreak,
       pomodoroIsBreak: false,
-      startTime: currentTime
+      startTime: currentTime,
+      date: currentDate
     };
     
     setActiveTimer(newTimer);
@@ -61,42 +64,39 @@ const TimerModule: React.FC = () => {
         
         const newElapsed = prev.elapsed + 1;
         
-        // For pomodoro timer, check if we need to switch between work and break
         if (prev.type === 'pomodoro') {
           const currentPeriodDuration = prev.pomodoroIsBreak ? prev.pomodoroBreak : prev.pomodoroWork;
           
           if (newElapsed >= currentPeriodDuration * 60) {
-            // Create time block for completed pomodoro session
             addTimeBlock({
               title: `${prev.title} ${prev.pomodoroIsBreak ? '(Break)' : '(Work)'}`,
               duration: currentPeriodDuration,
               startTime: prev.startTime,
+              date: prev.date || currentDate,
               tagIds: prev.tagIds
             });
             
-            // Get current time for the next session
             const now = new Date();
             const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             
-            // Switch between work and break
             return {
               ...prev,
               elapsed: 0,
               pomodoroIsBreak: !prev.pomodoroIsBreak,
-              startTime: currentTime
+              startTime: currentTime,
+              date: now.toISOString().split('T')[0]
             };
           }
         }
         
-        // For countdown timer, check if time is up
         if (prev.type === 'countdown' && newElapsed >= prev.duration * 60) {
           clearInterval(interval);
           
-          // Create a time block for the completed timer
           addTimeBlock({
             title: prev.title,
             duration: prev.duration,
             startTime: prev.startTime,
+            date: prev.date || currentDate,
             tagIds: prev.tagIds
           });
           
@@ -125,7 +125,6 @@ const TimerModule: React.FC = () => {
   const resumeTimer = () => {
     if (!activeTimer) return;
     
-    // Update start time when resuming
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
@@ -145,6 +144,7 @@ const TimerModule: React.FC = () => {
               title: `${prev.title} ${prev.pomodoroIsBreak ? '(Break)' : '(Work)'}`,
               duration: currentPeriodDuration,
               startTime: prev.startTime,
+              date: prev.date,
               tagIds: prev.tagIds
             });
             
@@ -155,7 +155,8 @@ const TimerModule: React.FC = () => {
               ...prev,
               elapsed: 0,
               pomodoroIsBreak: !prev.pomodoroIsBreak,
-              startTime: currentTime
+              startTime: currentTime,
+              date: now.toISOString().split('T')[0]
             };
           }
         }
@@ -167,6 +168,7 @@ const TimerModule: React.FC = () => {
             title: prev.title,
             duration: prev.duration,
             startTime: prev.startTime,
+            date: prev.date,
             tagIds: prev.tagIds
           });
           
@@ -196,11 +198,58 @@ const TimerModule: React.FC = () => {
         title: activeTimer.title,
         duration: durationInMinutes,
         startTime: activeTimer.startTime,
+        date: activeTimer.date,
         tagIds: activeTimer.tagIds
       });
     }
     
     setActiveTimer(null);
+  };
+
+  const finishStopwatch = () => {
+    if (activeTimer && activeTimer.type === 'stopwatch') {
+      const durationInMinutes = Math.ceil(activeTimer.elapsed / 60);
+      
+      addTimeBlock({
+        title: activeTimer.title,
+        duration: durationInMinutes,
+        startTime: activeTimer.startTime,
+        date: activeTimer.date,
+        tagIds: activeTimer.tagIds
+      });
+
+      // Clear the interval but keep the timer display
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        setTimerInterval(null);
+      }
+      setActiveTimer(prev => prev ? { ...prev, running: false } : null);
+    }
+  };
+
+  const restartStopwatch = () => {
+    if (activeTimer && activeTimer.type === 'stopwatch') {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      setActiveTimer({
+        ...activeTimer,
+        elapsed: 0,
+        running: true,
+        startTime: currentTime,
+        date: now.toISOString().split('T')[0]
+      });
+
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+
+      const interval = setInterval(() => {
+        setActiveTimer(prev => prev ? { ...prev, elapsed: prev.elapsed + 1 } : null);
+      }, 1000);
+      
+      setTimerInterval(interval);
+    }
   };
   
   const formatTime = (seconds: number) => {
@@ -235,7 +284,7 @@ const TimerModule: React.FC = () => {
   return (
     <div className="timer-module">
       {!activeTimer && !showTimerForm && (
-        <button className="timer-toggle\" onClick={() => setShowTimerForm(true)}>
+        <button className="timer-toggle" onClick={() => setShowTimerForm(true)}>
           <TimerIcon size={18} />
           <span>Start Timer</span>
         </button>
@@ -401,18 +450,43 @@ const TimerModule: React.FC = () => {
           <div className="timer-display">{getTimerDisplay()}</div>
           
           <div className="timer-controls">
-            {activeTimer.running ? (
-              <button className="timer-control pause\" onClick={pauseTimer}>
-                <Pause size={20} />
-              </button>
+            {activeTimer.type === 'stopwatch' ? (
+              <>
+                {activeTimer.running ? (
+                  <button className="timer-control pause" onClick={pauseTimer}>
+                    <Pause size={20} />
+                  </button>
+                ) : (
+                  <button className="timer-control play" onClick={resumeTimer}>
+                    <Play size={20} />
+                  </button>
+                )}
+                <button className="timer-control finish" onClick={finishStopwatch}>
+                  <CheckSquare size={20} />
+                </button>
+                <button className="timer-control restart" onClick={restartStopwatch}>
+                  <RotateCcw size={20} />
+                </button>
+                <button className="timer-control stop" onClick={stopTimer}>
+                  <Square size={20} />
+                </button>
+              </>
             ) : (
-              <button className="timer-control play" onClick={resumeTimer}>
-                <Play size={20} />
-              </button>
+              <>
+                {activeTimer.running ? (
+                  <button className="timer-control pause" onClick={pauseTimer}>
+                    <Pause size={20} />
+                  </button>
+                ) : (
+                  <button className="timer-control play" onClick={resumeTimer}>
+                    <Play size={20} />
+                  </button>
+                )}
+                <button className="timer-control stop" onClick={stopTimer}>
+                  <Square size={20} />
+                </button>
+              </>
             )}
-            <button className="timer-control stop" onClick={stopTimer}>
-              <RotateCcw size={20} />
-            </button>
           </div>
         </div>
       )}
