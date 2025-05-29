@@ -7,9 +7,18 @@ import './Timeline.css';
 const Timeline: React.FC = () => {
   const { timeBlocks, updateTimeBlock } = useTimeBlocks();
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   // Generate hour markers for the timeline
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedDate(e.target.value);
+  };
+
+  const handleJumpToToday = () => {
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+  };
   
   const handleDragStart = (id: string) => {
     setDraggingBlock(id);
@@ -29,7 +38,7 @@ const Timeline: React.FC = () => {
     
     if (draggingBlock && hours >= 0 && hours < 24) {
       const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      updateTimeBlock(draggingBlock, { startTime });
+      updateTimeBlock(draggingBlock, { startTime, date: selectedDate });
     }
   };
   
@@ -37,12 +46,27 @@ const Timeline: React.FC = () => {
     setDraggingBlock(null);
   };
   
-  // Group blocks by whether they have a startTime
-  const assignedBlocks = timeBlocks.filter(block => block.startTime);
+  // Group blocks by whether they have a startTime and match the selected date
+  const assignedBlocks = timeBlocks.filter(block => 
+    block.startTime && (!block.date || block.date === selectedDate)
+  );
   const unassignedBlocks = timeBlocks.filter(block => !block.startTime);
   
   return (
     <div className="timeline-container">
+      <div className="timeline-header">
+        <div className="date-navigation">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            className="date-picker"
+          />
+          <button onClick={handleJumpToToday} className="today-button">
+            Today
+          </button>
+        </div>
+      </div>
       <div 
         className="timeline" 
         onDragOver={handleDragOver}

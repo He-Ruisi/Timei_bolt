@@ -11,6 +11,7 @@ export interface TimeBlock {
   title: string;
   duration: number; // in minutes
   startTime?: string; // HH:MM format
+  date?: string; // YYYY-MM-DD format
   tagIds: string[];
   color?: string;
   locked?: boolean;
@@ -70,6 +71,7 @@ export const TimeBlockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newTimeBlock = {
       ...timeBlock,
       id: Date.now().toString(),
+      date: timeBlock.startTime ? new Date().toISOString().split('T')[0] : undefined,
     };
     setTimeBlocks((prev) => [...prev, newTimeBlock]);
     return newTimeBlock;
