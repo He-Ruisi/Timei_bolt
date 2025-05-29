@@ -1,37 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import TimeBlockComponent from './TimeBlockComponent';
 import { formatTime } from '../../utils/timeUtils';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import './Timeline.css';
 
 const Timeline: React.FC = () => {
   const { timeBlocks, updateTimeBlock } = useTimeBlocks();
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
-  // Generate hour markers for the timeline
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedDate(e.target.value);
-  };
-
-  const handleJumpToToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
-  };
-
-  const handlePreviousDay = () => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() - 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
-  };
-
-  const handleNextDay = () => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() + 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
-  };
+  // Generate business hours (8 AM - 6 PM)
+  const businessHours = useMemo(() => 
+    Array.from({ length: 11 }, (_, i) => i + 8), 
+    []
+  );
   
   const handleDragStart = (id: string) => {
     setDraggingBlock(id);
@@ -39,19 +20,15 @@ const Timeline: React.FC = () => {
   
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    // Calculate the time based on drag position
     const timelineRect = e.currentTarget.getBoundingClientRect();
     const relativeY = e.clientY - timelineRect.top;
-    const totalMinutes = Math.floor((relativeY / timelineRect.height) * 24 * 60);
+    const hourHeight = timelineRect.height / businessHours.length;
+    const hour = Math.floor(relativeY / hourHeight) + businessHours[0];
+    const minutes = Math.round((relativeY % hourHeight) / hourHeight * 60 / 15) * 15;
     
-    // Snap to 15-minute intervals
-    const snappedMinutes = Math.round(totalMinutes / 15) * 15;
-    const hours = Math.floor(snappedMinutes / 60);
-    const minutes = snappedMinutes % 60;
-    
-    if (draggingBlock && hours >= 0 && hours < 24) {
-      const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      updateTimeBlock(draggingBlock, { startTime, date: selectedDate });
+    if (draggingBlock && hour >= businessHours[0] && hour <= businessHours[businessHours.length - 1]) {
+      const startTime = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      updateTimeBlock(draggingBlock, { startTime });
     }
   };
   
@@ -59,42 +36,23 @@ const Timeline: React.FC = () => {
     setDraggingBlock(null);
   };
   
-  // Group blocks by whether they have a startTime and match the selected date
+  // Group blocks by whether they have a startTime
   const assignedBlocks = timeBlocks.filter(block => 
-    block.startTime && block.date === selectedDate
+    block.startTime && 
+    parseInt(block.startTime.split(':')[0]) >= businessHours[0] &&
+    parseInt(block.startTime.split(':')[0]) <= businessHours[businessHours.length - 1]
   );
   const unassignedBlocks = timeBlocks.filter(block => !block.startTime);
   
   return (
     <div className="timeline-container">
-      <div className="timeline-header">
-        <div className="date-navigation">
-          <button onClick={handlePreviousDay} className="nav-button">
-            <ChevronLeft size={16} />
-            Previous
-          </button>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="date-picker"
-          />
-          <button onClick={handleJumpToToday} className="today-button">
-            Today
-          </button>
-          <button onClick={handleNextDay} className="nav-button">
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
       <div 
         className="timeline" 
         onDragOver={handleDragOver}
         onDrop={handleDragEnd}
       >
         <div className="time-markers">
-          {hours.map(hour => (
+          {businessHours.map(hour => (
             <div key={hour} className="hour-marker">
               <span className="hour-label">{formatTime(hour)}</span>
               <div className="hour-line"></div>
@@ -106,8 +64,9 @@ const Timeline: React.FC = () => {
             if (!block.startTime) return null;
             
             const [hours, minutes] = block.startTime.split(':').map(Number);
-            const topPosition = ((hours * 60 + minutes) / (24 * 60)) * 100;
-            const height = (block.duration / (24 * 60)) * 100;
+            const startMinutes = (hours - businessHours[0]) * 60 + minutes;
+            const topPosition = (startMinutes / (businessHours.length * 60)) * 100;
+            const height = (block.duration / (businessHours.length * 60)) * 100;
             
             return (
               <TimeBlockComponent
@@ -117,8 +76,7 @@ const Timeline: React.FC = () => {
                   position: 'absolute',
                   top: `${topPosition}%`,
                   height: `${height}%`,
-                  width: 'calc(100% - 60px)',
-                  left: '60px'
+                  width: 'calc(100% - var(--space-4))'
                 }}
                 onDragStart={() => handleDragStart(block.id)}
                 onDragEnd={handleDragEnd}
