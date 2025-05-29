@@ -2,100 +2,112 @@ import React, { useEffect, useState } from 'react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import './HeatmapModule.css';
 
+type ViewType = 'week' | 'month' | 'year';
+
 interface DayData {
   date: string;
   count: number;
-  intensity: number; // 0-4, with 4 being the highest
+  intensity: number;
 }
-
-type ViewType = 'week' | 'month';
 
 const HeatmapModule: React.FC = () => {
   const { timeBlocks } = useTimeBlocks();
-  const [heatmapData, setHeatmapData] = useState<DayData[]>([]);
-  const [viewType, setViewType] = useState<ViewType>('week');
+  const [viewType, setViewType] = useState<ViewType>('year');
+  const [heatmapData, setHeatmapData] = useState<DayData[][]>([]);
   
-  // Generate heatmap data based on view type
   useEffect(() => {
     const today = new Date();
-    const days: DayData[] = [];
-    const daysToShow = viewType === 'week' ? 28 : getDaysInLastThreeMonths();
+    const daysToShow = getDaysToShow(viewType);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - daysToShow + 1);
     
     // Group time blocks by day
     const timeBlocksByDay: Record<string, number> = {};
     
     timeBlocks.forEach(block => {
-      if (block.startTime) {
-        const blockDate = new Date();
-        const [hours, minutes] = block.startTime.split(':').map(Number);
-        blockDate.setHours(hours, minutes, 0, 0);
-        
-        const dateKey = blockDate.toISOString().split('T')[0];
-        
-        if (!timeBlocksByDay[dateKey]) {
-          timeBlocksByDay[dateKey] = 0;
-        }
-        
-        timeBlocksByDay[dateKey]++;
+      const dateKey = block.date;
+      if (!timeBlocksByDay[dateKey]) {
+        timeBlocksByDay[dateKey] = 0;
       }
+      timeBlocksByDay[dateKey]++;
     });
     
-    // Find the maximum count to normalize intensity
-    const counts = Object.values(timeBlocksByDay);
-    const maxCount = counts.length > 0 ? Math.max(...counts) : 0;
+    // Find max count for intensity calculation
+    const maxCount = Math.max(...Object.values(timeBlocksByDay), 1);
     
-    // Generate the data for the selected period
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      
+    // Generate data for each day
+    const data: DayData[] = [];
+    for (let i = 0; i < daysToShow; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const count = timeBlocksByDay[dateKey] || 0;
       
-      // Calculate intensity level (0-4)
-      const intensity = maxCount === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
-      
-      days.push({
+      data.push({
         date: dateKey,
         count,
-        intensity
+        intensity: Math.min(4, Math.ceil((count / maxCount) * 4))
       });
     }
     
-    setHeatmapData(days);
+    // Group data by weeks
+    const weeks: DayData[][] = [];
+    for (let i = 0; i < data.length; i += 7) {
+      weeks.push(data.slice(i, Math.min(i + 7, data.length)));
+    }
+    
+    setHeatmapData(weeks);
   }, [timeBlocks, viewType]);
   
-  const getDaysInLastThreeMonths = () => {
+  const getDaysToShow = (view: ViewType): number => {
+    switch (view) {
+      case 'week':
+        return 7;
+      case 'month':
+        return 35; // 5 weeks
+      case 'year':
+        return 371; // 53 weeks
+      default:
+        return 371;
+    }
+  };
+  
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+  
+  const getMonthLabels = (): string[] => {
+    const months: string[] = [];
     const today = new Date();
-    const threeMonthsAgo = new Date(today);
-    threeMonthsAgo.setMonth(today.getMonth() - 3);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - getDaysToShow(viewType) + 1);
     
-    const diffTime = Math.abs(today.getTime() - threeMonthsAgo.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    let currentMonth = '';
+    for (let i = 0; i < getDaysToShow(viewType); i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      
+      if (month !== currentMonth) {
+        currentMonth = month;
+        months.push(month);
+      }
+    }
+    
+    return months;
   };
-  
-  const getDayLabel = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.getDate();
-  };
-  
-  const getMonthLabel = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('default', { month: 'short' });
-  };
-  
-  // Group by week
-  const weeks: DayData[][] = [];
-  for (let i = 0; i < heatmapData.length; i += 7) {
-    weeks.push(heatmapData.slice(i, i + 7));
-  }
   
   return (
     <div className="heatmap-module">
       <div className="heatmap-header">
         <div className="heatmap-title">
           <h3>Activity Heatmap</h3>
-          <p>Your time block activity over the past {viewType === 'week' ? '4 weeks' : '3 months'}</p>
+          <p>Your time block activity over time</p>
         </div>
         
         <div className="view-toggle">
@@ -111,49 +123,61 @@ const HeatmapModule: React.FC = () => {
           >
             Month
           </button>
+          <button
+            className={viewType === 'year' ? 'active' : ''}
+            onClick={() => setViewType('year')}
+          >
+            Year
+          </button>
         </div>
       </div>
       
-      <div className="heatmap">
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="heatmap-week">
-            {week.map((day, dayIndex) => (
-              <div 
-                key={day.date} 
-                className={`heatmap-day intensity-${day.intensity}`}
-                title={`${day.date}: ${day.count} time blocks`}
-              >
-                <span className="day-label">
-                  {getDayLabel(day.date)} {getMonthLabel(day.date)}
-                </span>
-                {dayIndex === 0 && <span className="month-label">{getMonthLabel(day.date)}</span>}
+      <div className="heatmap-container">
+        <div className="heatmap-grid">
+          <div className="weekday-labels">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+              <div key={day} className="weekday-label">
+                {day}
               </div>
             ))}
           </div>
-        ))}
+          
+          <div className="heatmap">
+            <div className="month-labels">
+              {getMonthLabels().map((month, i) => (
+                <div key={`${month}-${i}`} className="month-label">
+                  {month}
+                </div>
+              ))}
+            </div>
+            
+            {heatmapData.map((week, weekIndex) => (
+              <div key={weekIndex} className="heatmap-column">
+                {week.map((day, dayIndex) => (
+                  <div
+                    key={day.date}
+                    className={`heatmap-cell intensity-${day.intensity}`}
+                    title={`${formatDate(day.date)}: ${day.count} activities`}
+                  >
+                    <div className="cell-tooltip">
+                      {formatDate(day.date)}: {day.count} activities
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       
       <div className="heatmap-legend">
-        <div className="legend-item">
-          <div className="legend-color intensity-0"></div>
-          <span>None</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color intensity-1"></div>
-          <span>Low</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color intensity-2"></div>
-          <span>Medium</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color intensity-3"></div>
-          <span>High</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color intensity-4"></div>
-          <span>Very High</span>
-        </div>
+        <span>Less</span>
+        {[0, 1, 2, 3, 4].map((intensity) => (
+          <div key={intensity} className="legend-item">
+            <div className={`legend-color intensity-${intensity}`}></div>
+          </div>
+        ))}
+        <span>More</span>
       </div>
     </div>
   );
