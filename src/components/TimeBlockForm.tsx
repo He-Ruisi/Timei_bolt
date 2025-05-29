@@ -57,7 +57,7 @@ const TimeBlockForm: React.FC = () => {
   return (
     <div className="time-block-form-container">
       {isFormOpen ? (
-        <form className="time-block-form" onSubmit={handleSubmit}>
+        <form className="time-block-form\" onSubmit={handleSubmit}>
           <div className="form-header">
             <h3>Add Time Block</h3>
             <button 
