@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import './HeatmapModule.css';
 
@@ -11,10 +11,35 @@ interface DayData {
 }
 
 const HeatmapModule: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const { timeBlocks } = useTimeBlocks();
-  const [viewType, setViewType] = useState<ViewType>('year');
+  const [viewType, setViewType] = useState<ViewType>(() => 
+    localStorage.getItem('heatmapView') as ViewType || 'month'
+  );
   const [heatmapData, setHeatmapData] = useState<DayData[][]>([]);
-  
+  const [columns, setColumns] = useState(0);
+
+  const calculateColumns = useCallback(() => {
+    if (!containerRef.current) return;
+    const containerWidth = containerRef.current.offsetWidth - 40; // Account for padding
+    const cellSize = 10;
+    const gap = 2;
+    const cols = Math.floor((containerWidth + gap) / (cellSize + gap));
+    setColumns(cols);
+  }, []);
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(debounce(calculateColumns, 100));
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    return () => resizeObserver.disconnect();
+  }, [calculateColumns]);
+
+  useEffect(() => {
+    localStorage.setItem('heatmapView', viewType);
+  }, [viewType]);
+
   useEffect(() => {
     const today = new Date();
     const daysToShow = getDaysToShow(viewType);
@@ -32,7 +57,6 @@ const HeatmapModule: React.FC = () => {
       timeBlocksByDay[dateKey]++;
     });
     
-    // Find max count for intensity calculation
     const maxCount = Math.max(...Object.values(timeBlocksByDay), 1);
     
     // Generate data for each day
@@ -50,28 +74,30 @@ const HeatmapModule: React.FC = () => {
       });
     }
     
-    // Group data by weeks
-    const weeks: DayData[][] = [];
-    for (let i = 0; i < data.length; i += 7) {
-      weeks.push(data.slice(i, Math.min(i + 7, data.length)));
+    // Group data by calculated columns
+    const groupedData: DayData[][] = [];
+    const colCount = columns || Math.ceil(data.length / 7);
+    
+    for (let i = 0; i < data.length; i += colCount) {
+      groupedData.push(data.slice(i, i + colCount));
     }
     
-    setHeatmapData(weeks);
-  }, [timeBlocks, viewType]);
-  
+    setHeatmapData(groupedData);
+  }, [timeBlocks, viewType, columns]);
+
   const getDaysToShow = (view: ViewType): number => {
     switch (view) {
       case 'week':
         return 7;
       case 'month':
-        return 35; // 5 weeks
+        return 30;
       case 'year':
-        return 371; // 53 weeks
+        return 90;
       default:
-        return 371;
+        return 30;
     }
   };
-  
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
@@ -80,34 +106,24 @@ const HeatmapModule: React.FC = () => {
       year: 'numeric'
     });
   };
-  
-  const getMonthLabels = (): string[] => {
-    const months: string[] = [];
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - getDaysToShow(viewType) + 1);
-    
-    let currentMonth = '';
-    for (let i = 0; i < getDaysToShow(viewType); i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const month = date.toLocaleDateString('en-US', { month: 'short' });
-      
-      if (month !== currentMonth) {
-        currentMonth = month;
-        months.push(month);
-      }
-    }
-    
-    return months;
+
+  const debounce = (fn: Function, ms: number) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return function (...args: any[]) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn.apply(this, args), ms);
+    };
   };
-  
+
   return (
-    <div className="heatmap-module">
+    <div className="heatmap-module" ref={containerRef}>
       <div className="heatmap-header">
         <div className="heatmap-title">
           <h3>Activity Heatmap</h3>
-          <p>Your time block activity over time</p>
+          <p>Your time block activity over the past {
+            viewType === 'week' ? '7 days' : 
+            viewType === 'month' ? '30 days' : '90 days'
+          }</p>
         </div>
         
         <div className="view-toggle">
@@ -133,40 +149,22 @@ const HeatmapModule: React.FC = () => {
       </div>
       
       <div className="heatmap-container">
-        <div className="heatmap-grid">
-          <div className="weekday-labels">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-              <div key={day} className="weekday-label">
-                {day}
-              </div>
-            ))}
-          </div>
-          
-          <div className="heatmap">
-            <div className="month-labels">
-              {getMonthLabels().map((month, i) => (
-                <div key={`${month}-${i}`} className="month-label">
-                  {month}
+        <div className="heatmap">
+          {heatmapData.map((row, rowIndex) => (
+            <div key={rowIndex} className="heatmap-row">
+              {row.map((day) => (
+                <div
+                  key={day.date}
+                  className={`heatmap-cell intensity-${day.intensity}`}
+                  title={`${formatDate(day.date)}: ${day.count} activities`}
+                >
+                  <div className="cell-tooltip">
+                    {formatDate(day.date)}: {day.count} activities
+                  </div>
                 </div>
               ))}
             </div>
-            
-            {heatmapData.map((week, weekIndex) => (
-              <div key={weekIndex} className="heatmap-column">
-                {week.map((day, dayIndex) => (
-                  <div
-                    key={day.date}
-                    className={`heatmap-cell intensity-${day.intensity}`}
-                    title={`${formatDate(day.date)}: ${day.count} activities`}
-                  >
-                    <div className="cell-tooltip">
-                      {formatDate(day.date)}: {day.count} activities
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
       
