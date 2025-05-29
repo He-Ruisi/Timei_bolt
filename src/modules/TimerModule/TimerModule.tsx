@@ -284,7 +284,7 @@ const TimerModule: React.FC = () => {
   return (
     <div className="timer-module">
       {!activeTimer && !showTimerForm && (
-        <button className="timer-toggle" onClick={() => setShowTimerForm(true)}>
+        <button className="timer-toggle\" onClick={() => setShowTimerForm(true)}>
           <TimerIcon size={18} />
           <span>Start Timer</span>
         </button>
@@ -453,7 +453,7 @@ const TimerModule: React.FC = () => {
             {activeTimer.type === 'stopwatch' ? (
               <>
                 {activeTimer.running ? (
-                  <button className="timer-control pause" onClick={pauseTimer}>
+                  <button className="timer-control pause\" onClick={pauseTimer}>
                     <Pause size={20} />
                   </button>
                 ) : (
@@ -474,7 +474,7 @@ const TimerModule: React.FC = () => {
             ) : (
               <>
                 {activeTimer.running ? (
-                  <button className="timer-control pause" onClick={pauseTimer}>
+                  <button className="timer-control pause\" onClick={pauseTimer}>
                     <Pause size={20} />
                   </button>
                 ) : (
