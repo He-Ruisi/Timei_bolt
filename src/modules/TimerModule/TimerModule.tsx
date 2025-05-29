@@ -68,6 +68,7 @@ const TimerModule: React.FC = () => {
           const currentPeriodDuration = prev.pomodoroIsBreak ? prev.pomodoroBreak : prev.pomodoroWork;
           
           if (newElapsed >= currentPeriodDuration * 60) {
+            // Create time block for completed pomodoro session
             addTimeBlock({
               title: `${prev.title} ${prev.pomodoroIsBreak ? '(Break)' : '(Work)'}`,
               duration: currentPeriodDuration,
@@ -92,6 +93,7 @@ const TimerModule: React.FC = () => {
         if (prev.type === 'countdown' && newElapsed >= prev.duration * 60) {
           clearInterval(interval);
           
+          // Create time block for completed countdown
           addTimeBlock({
             title: prev.title,
             duration: prev.duration,
@@ -284,7 +286,7 @@ const TimerModule: React.FC = () => {
   return (
     <div className="timer-module">
       {!activeTimer && !showTimerForm && (
-        <button className="timer-toggle\" onClick={() => setShowTimerForm(true)}>
+        <button className="timer-toggle" onClick={() => setShowTimerForm(true)}>
           <TimerIcon size={18} />
           <span>Start Timer</span>
         </button>
@@ -453,7 +455,7 @@ const TimerModule: React.FC = () => {
             {activeTimer.type === 'stopwatch' ? (
               <>
                 {activeTimer.running ? (
-                  <button className="timer-control pause\" onClick={pauseTimer}>
+                  <button className="timer-control pause" onClick={pauseTimer}>
                     <Pause size={20} />
                   </button>
                 ) : (
@@ -474,7 +476,7 @@ const TimerModule: React.FC = () => {
             ) : (
               <>
                 {activeTimer.running ? (
-                  <button className="timer-control pause\" onClick={pauseTimer}>
+                  <button className="timer-control pause" onClick={pauseTimer}>
                     <Pause size={20} />
                   </button>
                 ) : (
