@@ -20,8 +20,8 @@ const TimelinePage: React.FC = () => {
       <TimeBlockForm />
       
       <div className="modules-container">
-        {isModuleInstalled('timer') && <TimerModule />}
         {isModuleInstalled('heatmap') && <HeatmapModule />}
+        {isModuleInstalled('timer') && <TimerModule />}
         {isModuleInstalled('habits') && <HabitsModule />}
         {isModuleInstalled('todos') && <TodosModule />}
       </div>
