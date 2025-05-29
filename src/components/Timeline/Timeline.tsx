@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useTimeBlocks, TimeBlock } from '../../contexts/TimeBlockContext';
+import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import TimeBlockComponent from './TimeBlockComponent';
 import { formatTime } from '../../utils/timeUtils';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import './Timeline.css';
 
 const Timeline: React.FC = () => {
@@ -18,6 +19,18 @@ const Timeline: React.FC = () => {
 
   const handleJumpToToday = () => {
     setSelectedDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handlePreviousDay = () => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() - 1);
+    setSelectedDate(date.toISOString().split('T')[0]);
+  };
+
+  const handleNextDay = () => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 1);
+    setSelectedDate(date.toISOString().split('T')[0]);
   };
   
   const handleDragStart = (id: string) => {
@@ -56,6 +69,10 @@ const Timeline: React.FC = () => {
     <div className="timeline-container">
       <div className="timeline-header">
         <div className="date-navigation">
+          <button onClick={handlePreviousDay} className="nav-button">
+            <ChevronLeft size={16} />
+            Previous
+          </button>
           <input
             type="date"
             value={selectedDate}
@@ -64,6 +81,10 @@ const Timeline: React.FC = () => {
           />
           <button onClick={handleJumpToToday} className="today-button">
             Today
+          </button>
+          <button onClick={handleNextDay} className="nav-button">
+            Next
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
