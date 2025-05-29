@@ -14,7 +14,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="layout">
       <header className="header">
         <div className="container header-container">
-          <Link to="/" className="logo">
+          <Link to="/\" className="logo">
             <Clock size={24} />
             <span>Chronos</span>
           </Link>
