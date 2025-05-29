@@ -14,9 +14,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="layout">
       <header className="header">
         <div className="container header-container">
-          <Link to="/\" className="logo">
+          <Link to="/" className="logo">
             <Clock size={24} />
-            <span>Chronos</span>
+            <span>Timei</span>
           </Link>
           <nav className="nav">
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
@@ -35,7 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </main>
       <footer className="footer">
         <div className="container">
-          <p>&copy; {new Date().getFullYear()} Chronos Time Management</p>
+          <p>&copy; {new Date().getFullYear()} Timei Time Management</p>
         </div>
       </footer>
     </div>
