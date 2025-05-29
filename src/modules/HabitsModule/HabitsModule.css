@@ -1,0 +1,236 @@
+.habits-module {
+  margin-bottom: var(--space-4);
+  background-color: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  padding: var(--space-4);
+}
+
+.habits-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.habits-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin-bottom: var(--space-1);
+}
+
+.habits-header p {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.reset-habits-button {
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--gray-200);
+  color: var(--gray-700);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-habits-button:hover:not(:disabled) {
+  background-color: var(--gray-300);
+}
+
+.reset-habits-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.empty-habits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--gray-500);
+}
+
+.empty-habits p {
+  margin-bottom: var(--space-3);
+}
+
+.add-habit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-habit-button:hover {
+  background-color: #2c75e0;
+}
+
+.add-habit-button.secondary {
+  background-color: var(--gray-200);
+  color: var(--gray-800);
+  margin-top: var(--space-3);
+}
+
+.add-habit-button.secondary:hover {
+  background-color: var(--gray-300);
+}
+
+.habits-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.habit-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.habit-item:hover {
+  border-color: var(--gray-400);
+  background-color: var(--gray-50);
+}
+
+.habit-item.completed {
+  background-color: rgba(56, 176, 0, 0.05);
+  border-color: rgba(56, 176, 0, 0.2);
+}
+
+.habit-info h4 {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--gray-800);
+  margin-bottom: var(--space-1);
+}
+
+.habit-details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--gray-600);
+  font-size: 0.85rem;
+}
+
+.habit-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.habit-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.habit-action.edit {
+  background-color: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.habit-action.edit:hover {
+  background-color: var(--gray-300);
+}
+
+.habit-action.delete {
+  background-color: rgba(255, 82, 82, 0.1);
+  color: var(--error);
+}
+
+.habit-action.delete:hover {
+  background-color: rgba(255, 82, 82, 0.2);
+}
+
+.habit-action.complete {
+  background-color: rgba(56, 176, 0, 0.1);
+  color: var(--success);
+}
+
+.habit-action.complete:hover {
+  background-color: rgba(56, 176, 0, 0.2);
+}
+
+.habit-completed-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-1) var(--space-2);
+  background-color: rgba(56, 176, 0, 0.1);
+  color: var(--success);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.habit-form {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--gray-300);
+  padding-top: var(--space-3);
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.form-header h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag-button {
+  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+}

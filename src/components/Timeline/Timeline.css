@@ -1,0 +1,84 @@
+.timeline-container {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: var(--space-4);
+  height: calc(100vh - 180px);
+  min-height: 600px;
+}
+
+.timeline {
+  position: relative;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background-color: var(--white);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.time-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 60px;
+  border-right: 1px solid var(--gray-300);
+  background-color: var(--gray-100);
+  z-index: 1;
+}
+
+.hour-marker {
+  position: relative;
+  height: calc(100% / 24);
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-2);
+}
+
+.hour-label {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  z-index: 2;
+}
+
+.hour-line {
+  position: absolute;
+  right: 0;
+  width: calc(100vw - 60px);
+  height: 1px;
+  background-color: var(--gray-200);
+  z-index: 1;
+}
+
+.timeline-content {
+  position: relative;
+  height: 100%;
+  margin-left: 60px;
+}
+
+.unassigned-blocks {
+  background-color: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+.unassigned-blocks h3 {
+  margin-bottom: var(--space-3);
+  color: var(--gray-800);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.unassigned-blocks-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (max-width: 768px) {
+  .timeline-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: 3fr 1fr;
+  }
+}
