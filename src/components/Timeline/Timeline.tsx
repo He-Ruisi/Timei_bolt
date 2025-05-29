@@ -48,7 +48,7 @@ const Timeline: React.FC = () => {
   
   // Group blocks by whether they have a startTime and match the selected date
   const assignedBlocks = timeBlocks.filter(block => 
-    block.startTime && (!block.date || block.date === selectedDate)
+    block.startTime && block.date === selectedDate
   );
   const unassignedBlocks = timeBlocks.filter(block => !block.startTime);
   

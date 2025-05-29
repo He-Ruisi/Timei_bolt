@@ -11,7 +11,7 @@ export interface TimeBlock {
   title: string;
   duration: number; // in minutes
   startTime?: string; // HH:MM format
-  date?: string; // YYYY-MM-DD format
+  date: string; // YYYY-MM-DD format
   tagIds: string[];
   color?: string;
   locked?: boolean;
@@ -38,7 +38,7 @@ const defaultTags: Tag[] = [
 const TimeBlockContext = createContext<TimeBlockContextType>({
   timeBlocks: [],
   tags: defaultTags,
-  addTimeBlock: () => ({ id: '', title: '', duration: 0, tagIds: [] }),
+  addTimeBlock: () => ({ id: '', title: '', duration: 0, date: '', tagIds: [] }),
   updateTimeBlock: () => {},
   deleteTimeBlock: () => {},
   addTag: () => {},
@@ -71,7 +71,7 @@ export const TimeBlockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newTimeBlock = {
       ...timeBlock,
       id: Date.now().toString(),
-      date: timeBlock.startTime ? new Date().toISOString().split('T')[0] : undefined,
+      date: timeBlock.date || new Date().toISOString().split('T')[0],
     };
     setTimeBlocks((prev) => [...prev, newTimeBlock]);
     return newTimeBlock;
