@@ -1,6 +1,6 @@
 .timeline-container {
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: var(--space-4);
   height: calc(100vh - 180px);
   min-height: 600px;
@@ -12,6 +12,7 @@
   background-color: var(--white);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
+  grid-column: 1 / -1;
 }
 
 .date-navigation {
@@ -117,7 +118,11 @@
 @media (max-width: 768px) {
   .timeline-container {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 3fr 1fr;
+    grid-template-rows: auto 2fr 1fr;
+  }
+  
+  .timeline-header {
+    grid-column: 1;
   }
   
   .date-navigation {
