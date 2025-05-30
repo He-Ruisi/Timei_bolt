@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Plus, ChevronDown, Volume2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Tag, Volume2 } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import { formatStopwatchTime, formatCountdownTime } from '../../utils/timeUtils';
 import './TimerModule.css';
 
-type TimerTab = 'stopwatch' | 'timer' | 'timeline';
+type TimerTab = 'stopwatch' | 'timer';
 type PomodoroPhase = 'work' | 'shortBreak' | 'longBreak';
 
 interface TimerState {
@@ -20,10 +20,11 @@ interface TimerState {
   timerSeconds: number;
   stopwatchElapsed: number;
   laps: number[];
+  selectedTags: string[];
 }
 
 const TimerModule: React.FC = () => {
-  const { addTimeBlock } = useTimeBlocks();
+  const { addTimeBlock, tags } = useTimeBlocks();
   const [state, setState] = useState<TimerState>({
     isRunning: false,
     isPomodoroMode: false,
@@ -37,8 +38,10 @@ const TimerModule: React.FC = () => {
     timerSeconds: 0,
     stopwatchElapsed: 0,
     laps: [],
+    selectedTags: []
   });
 
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -134,7 +137,6 @@ const TimerModule: React.FC = () => {
       intervalRef.current = null;
     }
 
-    // Log completed phase
     addTimeBlock({
       title: `Pomodoro - ${state.pomodoroPhase === 'work' ? 'Work' : 'Break'} Session`,
       duration: state.pomodoroPhase === 'work'
@@ -142,10 +144,9 @@ const TimerModule: React.FC = () => {
         : state.pomodoroPhase === 'shortBreak'
         ? state.shortBreakDuration
         : state.longBreakDuration,
-      tagIds: []
+      tagIds: state.selectedTags
     });
 
-    // Update state for next phase
     setState(prev => {
       let nextPhase: PomodoroPhase = 'work';
       let completedPomodoros = prev.completedPomodoros;
@@ -179,12 +180,21 @@ const TimerModule: React.FC = () => {
     addTimeBlock({
       title: 'Timer Session',
       duration: state.timerMinutes,
-      tagIds: []
+      tagIds: state.selectedTags
     });
 
     setState(prev => ({
       ...prev,
       isRunning: false
+    }));
+  };
+
+  const toggleTag = (tagId: string) => {
+    setState(prev => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tagId)
+        ? prev.selectedTags.filter(id => id !== tagId)
+        : [...prev.selectedTags, tagId]
     }));
   };
 
@@ -241,12 +251,38 @@ const TimerModule: React.FC = () => {
   return (
     <div className="timer-module">
       <div className="timer-header">
-        <h2 className="timer-title">Timei</h2>
+        <h2 className="timer-title">Timer</h2>
         <div className="timer-controls-top">
-          <button className="general-dropdown">
-            General
-            <ChevronDown size={16} />
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button 
+              className="tag-selector"
+              onClick={() => setShowTagSelector(!showTagSelector)}
+            >
+              <Tag size={16} />
+              Tags
+            </button>
+            {showTagSelector && (
+              <div className="tag-selector-dropdown">
+                {tags.map(tag => (
+                  <div
+                    key={tag.id}
+                    className={`tag-selector-item ${state.selectedTags.includes(tag.id) ? 'selected' : ''}`}
+                    onClick={() => toggleTag(tag.id)}
+                  >
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        backgroundColor: tag.color
+                      }}
+                    />
+                    {tag.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="add-button">
             <Plus size={16} />
           </button>
@@ -265,12 +301,6 @@ const TimerModule: React.FC = () => {
           onClick={() => setState(prev => ({ ...prev, activeTab: 'timer' }))}
         >
           Timer
-        </button>
-        <button
-          className={`timer-tab ${state.activeTab === 'timeline' ? 'active' : ''}`}
-          onClick={() => setState(prev => ({ ...prev, activeTab: 'timeline' }))}
-        >
-          Timeline
         </button>
       </div>
 
