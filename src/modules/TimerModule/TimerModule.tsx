@@ -1,43 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Plus, Tag, Volume2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Tag, CheckSquare } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
-import { formatStopwatchTime, formatCountdownTime } from '../../utils/timeUtils';
+import { formatStopwatchTime } from '../../utils/timeUtils';
 import './TimerModule.css';
 
 type TimerTab = 'stopwatch' | 'timer';
-type PomodoroPhase = 'work' | 'shortBreak' | 'longBreak';
 
 interface TimerState {
   isRunning: boolean;
-  isPomodoroMode: boolean;
   activeTab: TimerTab;
-  pomodoroPhase: PomodoroPhase;
-  completedPomodoros: number;
-  workDuration: number;
-  shortBreakDuration: number;
-  longBreakDuration: number;
-  timerMinutes: number;
-  timerSeconds: number;
   stopwatchElapsed: number;
-  laps: number[];
   selectedTags: string[];
+  startTime?: string;
 }
 
 const TimerModule: React.FC = () => {
   const { addTimeBlock, tags } = useTimeBlocks();
   const [state, setState] = useState<TimerState>({
     isRunning: false,
-    isPomodoroMode: false,
-    activeTab: 'timer',
-    pomodoroPhase: 'work',
-    completedPomodoros: 0,
-    workDuration: 25,
-    shortBreakDuration: 5,
-    longBreakDuration: 15,
-    timerMinutes: 5,
-    timerSeconds: 0,
+    activeTab: 'stopwatch',
     stopwatchElapsed: 0,
-    laps: [],
     selectedTags: []
   });
 
@@ -56,45 +38,23 @@ const TimerModule: React.FC = () => {
   const startTimer = () => {
     if (state.isRunning) return;
 
-    setState(prev => ({ ...prev, isRunning: true }));
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    setState(prev => ({ 
+      ...prev, 
+      isRunning: true,
+      startTime: currentTime
+    }));
+    
     startTimeRef.current = Date.now() - state.stopwatchElapsed;
 
-    if (state.activeTab === 'stopwatch') {
-      intervalRef.current = setInterval(() => {
-        setState(prev => ({
-          ...prev,
-          stopwatchElapsed: Date.now() - startTimeRef.current
-        }));
-      }, 10);
-    } else if (state.activeTab === 'timer') {
-      const totalSeconds = state.isPomodoroMode
-        ? (state.pomodoroPhase === 'work'
-          ? state.workDuration
-          : state.pomodoroPhase === 'shortBreak'
-          ? state.shortBreakDuration
-          : state.longBreakDuration) * 60
-        : state.timerMinutes * 60 + state.timerSeconds;
-
-      let secondsLeft = totalSeconds;
-
-      intervalRef.current = setInterval(() => {
-        secondsLeft--;
-
-        if (secondsLeft < 0) {
-          if (state.isPomodoroMode) {
-            handlePomodoroPhaseComplete();
-          } else {
-            handleTimerComplete();
-          }
-        } else {
-          setState(prev => ({
-            ...prev,
-            timerMinutes: Math.floor(secondsLeft / 60),
-            timerSeconds: secondsLeft % 60
-          }));
-        }
-      }, 1000);
-    }
+    intervalRef.current = setInterval(() => {
+      setState(prev => ({
+        ...prev,
+        stopwatchElapsed: Date.now() - startTimeRef.current
+      }));
+    }, 10);
   };
 
   const pauseTimer = () => {
@@ -118,74 +78,31 @@ const TimerModule: React.FC = () => {
       ...prev,
       isRunning: false,
       stopwatchElapsed: 0,
-      laps: [],
-      timerMinutes: state.isPomodoroMode ? state.workDuration : 5,
-      timerSeconds: 0
+      startTime: undefined
     }));
   };
 
-  const handleLap = () => {
-    setState(prev => ({
-      ...prev,
-      laps: [...prev.laps, prev.stopwatchElapsed]
-    }));
-  };
-
-  const handlePomodoroPhaseComplete = () => {
+  const finishTimer = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
+    const durationInMinutes = Math.ceil(state.stopwatchElapsed / 60000);
+    
     addTimeBlock({
-      title: `Pomodoro - ${state.pomodoroPhase === 'work' ? 'Work' : 'Break'} Session`,
-      duration: state.pomodoroPhase === 'work'
-        ? state.workDuration
-        : state.pomodoroPhase === 'shortBreak'
-        ? state.shortBreakDuration
-        : state.longBreakDuration,
-      tagIds: state.selectedTags
-    });
-
-    setState(prev => {
-      let nextPhase: PomodoroPhase = 'work';
-      let completedPomodoros = prev.completedPomodoros;
-
-      if (prev.pomodoroPhase === 'work') {
-        completedPomodoros++;
-        nextPhase = completedPomodoros % 4 === 0 ? 'longBreak' : 'shortBreak';
-      }
-
-      return {
-        ...prev,
-        isRunning: false,
-        pomodoroPhase: nextPhase,
-        completedPomodoros,
-        timerMinutes: nextPhase === 'work'
-          ? prev.workDuration
-          : nextPhase === 'shortBreak'
-          ? prev.shortBreakDuration
-          : prev.longBreakDuration,
-        timerSeconds: 0
-      };
-    });
-  };
-
-  const handleTimerComplete = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    addTimeBlock({
-      title: 'Timer Session',
-      duration: state.timerMinutes,
+      title: 'Stopwatch Session',
+      duration: durationInMinutes,
+      startTime: state.startTime,
+      date: new Date().toISOString().split('T')[0],
       tagIds: state.selectedTags
     });
 
     setState(prev => ({
       ...prev,
-      isRunning: false
+      isRunning: false,
+      stopwatchElapsed: 0,
+      startTime: undefined
     }));
   };
 
@@ -196,56 +113,6 @@ const TimerModule: React.FC = () => {
         ? prev.selectedTags.filter(id => id !== tagId)
         : [...prev.selectedTags, tagId]
     }));
-  };
-
-  const adjustDuration = (
-    type: 'work' | 'shortBreak' | 'longBreak' | 'timer' | 'seconds',
-    amount: number
-  ) => {
-    setState(prev => {
-      const updates: Partial<TimerState> = {};
-
-      switch (type) {
-        case 'work':
-          updates.workDuration = Math.max(1, Math.min(60, prev.workDuration + amount));
-          if (prev.pomodoroPhase === 'work') {
-            updates.timerMinutes = updates.workDuration;
-            updates.timerSeconds = 0;
-          }
-          break;
-        case 'shortBreak':
-          updates.shortBreakDuration = Math.max(1, Math.min(30, prev.shortBreakDuration + amount));
-          if (prev.pomodoroPhase === 'shortBreak') {
-            updates.timerMinutes = updates.shortBreakDuration;
-            updates.timerSeconds = 0;
-          }
-          break;
-        case 'longBreak':
-          updates.longBreakDuration = Math.max(5, Math.min(45, prev.longBreakDuration + amount));
-          if (prev.pomodoroPhase === 'longBreak') {
-            updates.timerMinutes = updates.longBreakDuration;
-            updates.timerSeconds = 0;
-          }
-          break;
-        case 'timer':
-          updates.timerMinutes = Math.max(0, Math.min(99, prev.timerMinutes + amount));
-          break;
-        case 'seconds':
-          updates.timerSeconds = Math.max(0, Math.min(59, prev.timerSeconds + amount));
-          break;
-      }
-
-      return { ...prev, ...updates };
-    });
-  };
-
-  const getDisplayTime = () => {
-    if (state.activeTab === 'stopwatch') {
-      return formatStopwatchTime(state.stopwatchElapsed);
-    } else if (state.activeTab === 'timer') {
-      return formatCountdownTime(state.timerMinutes * 60 + state.timerSeconds);
-    }
-    return '00:00';
   };
 
   return (
@@ -304,37 +171,8 @@ const TimerModule: React.FC = () => {
         </button>
       </div>
 
-      {state.activeTab === 'timer' && (
-        <div className="pomodoro-toggle">
-          <span className="pomodoro-toggle-label">Pomodoro Mode</span>
-          <div
-            className={`toggle-switch ${state.isPomodoroMode ? 'active' : ''}`}
-            onClick={() => setState(prev => ({ ...prev, isPomodoroMode: !prev.isPomodoroMode }))}
-          />
-        </div>
-      )}
-
-      {state.activeTab === 'timer' && state.isPomodoroMode && (
-        <>
-          <div className="pomodoro-phase">
-            <span className="phase-label">Phase: {state.pomodoroPhase === 'work' ? 'Work' : state.pomodoroPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}</span>
-            <span className="completed-count">
-              Completed: {state.completedPomodoros} 🍅
-            </span>
-          </div>
-          <div className="phase-indicators">
-            {[0, 1, 2, 3].map((index) => (
-              <div
-                key={index}
-                className={`phase-dot ${index === state.completedPomodoros % 4 ? 'active' : ''}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className={`timer-display ${state.activeTab === 'timer' && state.isPomodoroMode ? 'red' : ''}`}>
-        {getDisplayTime()}
+      <div className="timer-display">
+        {formatStopwatchTime(state.stopwatchElapsed)}
       </div>
 
       <div className="timer-controls">
@@ -349,148 +187,37 @@ const TimerModule: React.FC = () => {
           <RotateCcw size={20} />
           Reset
         </button>
-        {state.activeTab === 'stopwatch' && (
-          <button className="timer-button secondary" onClick={handleLap}>
-            Lap
-          </button>
-        )}
       </div>
 
-      {state.activeTab === 'timer' && !state.isPomodoroMode && (
-        <div className="duration-controls">
-          <div className="duration-control">
-            <div className="duration-control-label">Minutes</div>
-            <div className="duration-input-group">
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('timer', -1)}
+      {state.selectedTags.length > 0 && (
+        <div className="selected-tags">
+          {state.selectedTags.map(tagId => {
+            const tag = tags.find(t => t.id === tagId);
+            if (!tag) return null;
+            return (
+              <span
+                key={tag.id}
+                className="selected-tag"
+                style={{
+                  backgroundColor: `${tag.color}20`,
+                  color: tag.color
+                }}
               >
-                -
-              </button>
-              <input
-                type="text"
-                className="duration-value"
-                value={state.timerMinutes}
-                readOnly
-              />
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('timer', 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
-          <div className="duration-control">
-            <div className="duration-control-label">Seconds</div>
-            <div className="duration-input-group">
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('seconds', -1)}
-              >
-                -
-              </button>
-              <input
-                type="text"
-                className="duration-value"
-                value={state.timerSeconds}
-                readOnly
-              />
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('seconds', 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
+                {tag.name}
+              </span>
+            );
+          })}
         </div>
       )}
 
-      {state.activeTab === 'timer' && state.isPomodoroMode && (
-        <div className="duration-controls">
-          <div className="duration-control">
-            <div className="duration-control-label">Work</div>
-            <div className="duration-input-group">
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('work', -1)}
-              >
-                -
-              </button>
-              <input
-                type="text"
-                className="duration-value"
-                value={`${state.workDuration}m`}
-                readOnly
-              />
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('work', 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
-          <div className="duration-control">
-            <div className="duration-control-label">Short Break</div>
-            <div className="duration-input-group">
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('shortBreak', -1)}
-              >
-                -
-              </button>
-              <input
-                type="text"
-                className="duration-value"
-                value={`${state.shortBreakDuration}m`}
-                readOnly
-              />
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('shortBreak', 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
-          <div className="duration-control">
-            <div className="duration-control-label">Long Break</div>
-            <div className="duration-input-group">
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('longBreak', -1)}
-              >
-                -
-              </button>
-              <input
-                type="text"
-                className="duration-value"
-                value={`${state.longBreakDuration}m`}
-                readOnly
-              />
-              <button
-                className="duration-button"
-                onClick={() => adjustDuration('longBreak', 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {state.activeTab === 'stopwatch' && state.laps.length > 0 && (
-        <div className="laps-container">
-          {state.laps.map((lapTime, index) => (
-            <div key={index} className="lap-item">
-              <span className="lap-number">Lap {index + 1}</span>
-              <span className="lap-time">{formatStopwatchTime(lapTime)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <button 
+        className="timer-button finish"
+        onClick={finishTimer}
+        disabled={!state.stopwatchElapsed}
+      >
+        <CheckSquare size={20} />
+        Finish
+      </button>
     </div>
   );
 };

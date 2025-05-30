@@ -1,4 +1,3 @@
-/* Timer Module Container */
 .timer-module {
   background-color: var(--white);
   border-radius: 12px;
@@ -75,54 +74,6 @@
   font-weight: 500;
 }
 
-/* Pomodoro Toggle */
-.pomodoro-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
-}
-
-.pomodoro-toggle-label {
-  font-weight: 500;
-  color: var(--gray-900);
-}
-
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 30px;
-  background-color: var(--gray-200);
-  border-radius: 15px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.toggle-switch.active {
-  background-color: #000;
-}
-
-.toggle-switch::after {
-  content: '🍅';
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 20px;
-  height: 20px;
-  background-color: white;
-  border-radius: 50%;
-  transition: transform 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-
-.toggle-switch.active::after {
-  transform: translateX(30px);
-}
-
 /* Timer Display */
 .timer-display {
   font-family: 'JetBrains Mono', monospace;
@@ -131,10 +82,6 @@
   text-align: center;
   margin: var(--space-6) 0;
   color: var(--gray-900);
-}
-
-.timer-display.red {
-  color: var(--error);
 }
 
 /* Timer Controls */
@@ -168,107 +115,38 @@
   border: 1px solid var(--gray-300);
 }
 
-/* Duration Controls */
-.duration-controls {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-4);
-}
-
-.duration-control {
-  flex: 1;
-}
-
-.duration-control-label {
-  font-size: 0.9rem;
-  color: var(--gray-700);
-  margin-bottom: var(--space-2);
-}
-
-.duration-input-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.duration-button {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--gray-300);
-  border-radius: 4px;
-  background-color: var(--white);
-  color: var(--gray-800);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
+.timer-button.finish {
+  background-color: var(--success);
+  color: white;
+  width: 100%;
   justify-content: center;
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  font-size: 1.1rem;
 }
 
-.duration-value {
-  width: 48px;
-  text-align: center;
-  border: 1px solid var(--gray-300);
-  border-radius: 4px;
-  padding: var(--space-1);
-  font-size: 0.9rem;
+.timer-button.finish:hover {
+  background-color: #2d9900;
 }
 
-/* Pomodoro Phase */
-.pomodoro-phase {
+/* Selected Tags Display */
+.selected-tags {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-200);
 }
 
-.phase-label {
+.selected-tag {
+  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: var(--gray-900);
-}
-
-.completed-count {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--gray-700);
-}
-
-.phase-indicators {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: center;
-  margin-bottom: var(--space-4);
-}
-
-.phase-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--gray-300);
-}
-
-.phase-dot.active {
-  background-color: var(--error);
-}
-
-/* Stopwatch Laps */
-.laps-container {
-  margin-top: var(--space-4);
-  border-top: 1px solid var(--gray-200);
-  padding-top: var(--space-4);
-}
-
-.lap-item {
-  display: flex;
-  justify-content: space-between;
-  padding: var(--space-2) 0;
-  color: var(--gray-700);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.lap-number {
-  color: var(--gray-500);
 }
 
 /* Tag Selector Dropdown */
@@ -311,10 +189,5 @@
 
   .timer-display {
     font-size: 3rem;
-  }
-
-  .duration-controls {
-    flex-direction: column;
-    gap: var(--space-3);
   }
 }
