@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Plus, Tag, CheckSquare, Timer, Tomato } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Tag, CheckSquare, Timer, Atom as Tomato } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import { formatStopwatchTime, formatCountdownTime } from '../../utils/timeUtils';
 import './TimerModule.css';
