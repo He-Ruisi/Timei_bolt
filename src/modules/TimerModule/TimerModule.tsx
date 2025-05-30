@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Plus, Tag, CheckSquare, Timer, Atom as Tomato } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Tag, CheckSquare, Timer, Atom as Tomato, Check } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
 import { formatStopwatchTime, formatCountdownTime } from '../../utils/timeUtils';
 import './TimerModule.css';
@@ -38,6 +38,7 @@ const TimerModule: React.FC = () => {
   });
 
   const [showTagSelector, setShowTagSelector] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -84,6 +85,33 @@ const TimerModule: React.FC = () => {
         });
       }, 1000);
     }
+  };
+
+  const handleFinish = () => {
+    if (!state.startTime) return;
+
+    const durationInMinutes = Math.ceil(state.stopwatchElapsed / 60000);
+    
+    addTimeBlock({
+      title: 'Timed Activity',
+      duration: durationInMinutes,
+      startTime: state.startTime,
+      date: new Date().toISOString().split('T')[0],
+      tagIds: state.selectedTags
+    });
+
+    // Reset the timer
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    setState(prev => ({
+      ...prev,
+      isRunning: false,
+      stopwatchElapsed: 0,
+      startTime: undefined
+    }));
   };
 
   const handlePomodoroComplete = () => {
@@ -227,6 +255,20 @@ const TimerModule: React.FC = () => {
     }));
   };
 
+  const handleAddTag = () => {
+    if (!newTagName.trim()) return;
+
+    const newTag = {
+      id: Date.now().toString(),
+      name: newTagName.trim(),
+      color: `#${Math.floor(Math.random()*16777215).toString(16)}`
+    };
+
+    tags.push(newTag);
+    toggleTag(newTag.id);
+    setNewTagName('');
+  };
+
   return (
     <div className="timer-module">
       <div className="timer-header">
@@ -242,6 +284,17 @@ const TimerModule: React.FC = () => {
             </button>
             {showTagSelector && (
               <div className="tag-selector-dropdown">
+                <div className="tag-selector-add">
+                  <input
+                    type="text"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="Add new tag..."
+                  />
+                  <button onClick={handleAddTag}>
+                    <Plus size={16} />
+                  </button>
+                </div>
                 {tags.map(tag => (
                   <div
                     key={tag.id}
@@ -262,9 +315,6 @@ const TimerModule: React.FC = () => {
               </div>
             )}
           </div>
-          <button className="add-button">
-            <Plus size={16} />
-          </button>
         </div>
       </div>
 
@@ -323,6 +373,15 @@ const TimerModule: React.FC = () => {
           {state.isRunning ? <Pause size={20} /> : <Play size={20} />}
           {state.isRunning ? 'Pause' : 'Start'}
         </button>
+        {state.activeTab === 'stopwatch' && state.stopwatchElapsed > 0 && (
+          <button 
+            className="timer-button success"
+            onClick={handleFinish}
+          >
+            <Check size={20} />
+            Finish
+          </button>
+        )}
         <button className="timer-button secondary" onClick={resetTimer}>
           <RotateCcw size={20} />
           Reset
