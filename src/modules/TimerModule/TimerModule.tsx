@@ -1,495 +1,464 @@
-import React, { useState } from 'react';
-import { Timer as TimerIcon, Clock, Pause, Play, RotateCcw, X, Atom as Tomato, Square, CheckSquare } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, Pause, RotateCcw, Plus, ChevronDown, Volume2 } from 'lucide-react';
 import { useTimeBlocks } from '../../contexts/TimeBlockContext';
+import { formatStopwatchTime, formatCountdownTime } from '../../utils/timeUtils';
 import './TimerModule.css';
 
-type TimerType = 'countdown' | 'stopwatch' | 'pomodoro';
+type TimerTab = 'stopwatch' | 'timer' | 'timeline';
+type PomodoroPhase = 'work' | 'shortBreak' | 'longBreak';
 
 interface TimerState {
-  type: TimerType;
-  duration: number; // in minutes
-  elapsed: number; // in seconds
-  running: boolean;
-  title: string;
-  tagIds: string[];
-  pomodoroWork: number; // in minutes
-  pomodoroBreak: number; // in minutes
-  pomodoroIsBreak: boolean;
-  startTime?: string; // HH:MM format
-  date?: string; // YYYY-MM-DD format
+  isRunning: boolean;
+  isPomodoroMode: boolean;
+  activeTab: TimerTab;
+  pomodoroPhase: PomodoroPhase;
+  completedPomodoros: number;
+  workDuration: number;
+  shortBreakDuration: number;
+  longBreakDuration: number;
+  timerMinutes: number;
+  timerSeconds: number;
+  stopwatchElapsed: number;
+  laps: number[];
 }
 
 const TimerModule: React.FC = () => {
-  const { addTimeBlock, tags } = useTimeBlocks();
-  const [activeTimer, setActiveTimer] = useState<TimerState | null>(null);
-  const [showTimerForm, setShowTimerForm] = useState(false);
-  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
-  
-  // Form state
-  const [timerType, setTimerType] = useState<TimerType>('countdown');
-  const [timerTitle, setTimerTitle] = useState('');
-  const [timerDuration, setTimerDuration] = useState(25);
-  const [pomodoroWork, setPomodoroWork] = useState(25);
-  const [pomodoroBreak, setPomodoroBreak] = useState(5);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  
-  const startTimer = () => {
-    if (timerTitle.trim() === '') return;
-    
-    // Get current time and date
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    const currentDate = now.toISOString().split('T')[0];
-    
-    const newTimer: TimerState = {
-      type: timerType,
-      duration: timerType === 'stopwatch' ? 0 : timerDuration,
-      elapsed: 0,
-      running: true,
-      title: timerTitle,
-      tagIds: selectedTags,
-      pomodoroWork,
-      pomodoroBreak,
-      pomodoroIsBreak: false,
-      startTime: currentTime,
-      date: currentDate
+  const { addTimeBlock } = useTimeBlocks();
+  const [state, setState] = useState<TimerState>({
+    isRunning: false,
+    isPomodoroMode: false,
+    activeTab: 'timer',
+    pomodoroPhase: 'work',
+    completedPomodoros: 0,
+    workDuration: 25,
+    shortBreakDuration: 5,
+    longBreakDuration: 15,
+    timerMinutes: 5,
+    timerSeconds: 0,
+    stopwatchElapsed: 0,
+    laps: [],
+  });
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-    
-    setActiveTimer(newTimer);
-    setShowTimerForm(false);
-    
-    const interval = setInterval(() => {
-      setActiveTimer(prev => {
-        if (!prev) return prev;
-        
-        const newElapsed = prev.elapsed + 1;
-        
-        if (prev.type === 'pomodoro') {
-          const currentPeriodDuration = prev.pomodoroIsBreak ? prev.pomodoroBreak : prev.pomodoroWork;
-          
-          if (newElapsed >= currentPeriodDuration * 60) {
-            // Create time block for completed pomodoro session
-            addTimeBlock({
-              title: `${prev.title} ${prev.pomodoroIsBreak ? '(Break)' : '(Work)'}`,
-              duration: currentPeriodDuration,
-              startTime: prev.startTime,
-              date: prev.date || currentDate,
-              tagIds: prev.tagIds
-            });
-            
-            const now = new Date();
-            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            
-            return {
-              ...prev,
-              elapsed: 0,
-              pomodoroIsBreak: !prev.pomodoroIsBreak,
-              startTime: currentTime,
-              date: now.toISOString().split('T')[0]
-            };
-          }
-        }
-        
-        if (prev.type === 'countdown' && newElapsed >= prev.duration * 60) {
-          clearInterval(interval);
-          
-          // Create time block for completed countdown
-          addTimeBlock({
-            title: prev.title,
-            duration: prev.duration,
-            startTime: prev.startTime,
-            date: prev.date || currentDate,
-            tagIds: prev.tagIds
-          });
-          
-          return null;
-        }
-        
-        return {
+  }, []);
+
+  const startTimer = () => {
+    if (state.isRunning) return;
+
+    setState(prev => ({ ...prev, isRunning: true }));
+    startTimeRef.current = Date.now() - state.stopwatchElapsed;
+
+    if (state.activeTab === 'stopwatch') {
+      intervalRef.current = setInterval(() => {
+        setState(prev => ({
           ...prev,
-          elapsed: newElapsed
-        };
-      });
-    }, 1000);
-    
-    setTimerInterval(interval);
-  };
-  
-  const pauseTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
-    }
-    
-    setActiveTimer(prev => prev ? { ...prev, running: false } : null);
-  };
-  
-  const resumeTimer = () => {
-    if (!activeTimer) return;
-    
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
-    setActiveTimer({ ...activeTimer, running: true, startTime: currentTime });
-    
-    const interval = setInterval(() => {
-      setActiveTimer(prev => {
-        if (!prev) return prev;
-        
-        const newElapsed = prev.elapsed + 1;
-        
-        if (prev.type === 'pomodoro') {
-          const currentPeriodDuration = prev.pomodoroIsBreak ? prev.pomodoroBreak : prev.pomodoroWork;
-          
-          if (newElapsed >= currentPeriodDuration * 60) {
-            addTimeBlock({
-              title: `${prev.title} ${prev.pomodoroIsBreak ? '(Break)' : '(Work)'}`,
-              duration: currentPeriodDuration,
-              startTime: prev.startTime,
-              date: prev.date,
-              tagIds: prev.tagIds
-            });
-            
-            const now = new Date();
-            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            
-            return {
-              ...prev,
-              elapsed: 0,
-              pomodoroIsBreak: !prev.pomodoroIsBreak,
-              startTime: currentTime,
-              date: now.toISOString().split('T')[0]
-            };
+          stopwatchElapsed: Date.now() - startTimeRef.current
+        }));
+      }, 10);
+    } else if (state.activeTab === 'timer') {
+      const totalSeconds = state.isPomodoroMode
+        ? (state.pomodoroPhase === 'work'
+          ? state.workDuration
+          : state.pomodoroPhase === 'shortBreak'
+          ? state.shortBreakDuration
+          : state.longBreakDuration) * 60
+        : state.timerMinutes * 60 + state.timerSeconds;
+
+      let secondsLeft = totalSeconds;
+
+      intervalRef.current = setInterval(() => {
+        secondsLeft--;
+
+        if (secondsLeft < 0) {
+          if (state.isPomodoroMode) {
+            handlePomodoroPhaseComplete();
+          } else {
+            handleTimerComplete();
           }
+        } else {
+          setState(prev => ({
+            ...prev,
+            timerMinutes: Math.floor(secondsLeft / 60),
+            timerSeconds: secondsLeft % 60
+          }));
         }
-        
-        if (prev.type === 'countdown' && newElapsed >= prev.duration * 60) {
-          clearInterval(interval);
-          
-          addTimeBlock({
-            title: prev.title,
-            duration: prev.duration,
-            startTime: prev.startTime,
-            date: prev.date,
-            tagIds: prev.tagIds
-          });
-          
-          return null;
-        }
-        
-        return {
-          ...prev,
-          elapsed: newElapsed
-        };
-      });
-    }, 1000);
-    
-    setTimerInterval(interval);
-  };
-  
-  const stopTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
-    }
-    
-    if (activeTimer && activeTimer.type === 'stopwatch') {
-      const durationInMinutes = Math.ceil(activeTimer.elapsed / 60);
-      
-      addTimeBlock({
-        title: activeTimer.title,
-        duration: durationInMinutes,
-        startTime: activeTimer.startTime,
-        date: activeTimer.date,
-        tagIds: activeTimer.tagIds
-      });
-    }
-    
-    setActiveTimer(null);
-  };
-
-  const finishStopwatch = () => {
-    if (activeTimer && activeTimer.type === 'stopwatch') {
-      const durationInMinutes = Math.ceil(activeTimer.elapsed / 60);
-      
-      addTimeBlock({
-        title: activeTimer.title,
-        duration: durationInMinutes,
-        startTime: activeTimer.startTime,
-        date: activeTimer.date,
-        tagIds: activeTimer.tagIds
-      });
-
-      // Clear the interval but keep the timer display
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        setTimerInterval(null);
-      }
-      setActiveTimer(prev => prev ? { ...prev, running: false } : null);
-    }
-  };
-
-  const restartStopwatch = () => {
-    if (activeTimer && activeTimer.type === 'stopwatch') {
-      const now = new Date();
-      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      
-      setActiveTimer({
-        ...activeTimer,
-        elapsed: 0,
-        running: true,
-        startTime: currentTime,
-        date: now.toISOString().split('T')[0]
-      });
-
-      if (timerInterval) {
-        clearInterval(timerInterval);
-      }
-
-      const interval = setInterval(() => {
-        setActiveTimer(prev => prev ? { ...prev, elapsed: prev.elapsed + 1 } : null);
       }, 1000);
-      
-      setTimerInterval(interval);
     }
   };
-  
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  const getTimerDisplay = () => {
-    if (!activeTimer) return '00:00';
-    
-    if (activeTimer.type === 'stopwatch') {
-      return formatTime(activeTimer.elapsed);
-    } else if (activeTimer.type === 'pomodoro') {
-      const currentDuration = activeTimer.pomodoroIsBreak 
-        ? activeTimer.pomodoroBreak * 60 
-        : activeTimer.pomodoroWork * 60;
-      return formatTime(currentDuration - activeTimer.elapsed);
-    } else {
-      return formatTime(activeTimer.duration * 60 - activeTimer.elapsed);
+
+  const pauseTimer = () => {
+    if (!state.isRunning) return;
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
+
+    setState(prev => ({ ...prev, isRunning: false }));
   };
-  
-  const toggleTag = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) 
-        ? prev.filter(id => id !== tagId) 
-        : [...prev, tagId]
-    );
+
+  const resetTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    setState(prev => ({
+      ...prev,
+      isRunning: false,
+      stopwatchElapsed: 0,
+      laps: [],
+      timerMinutes: state.isPomodoroMode ? state.workDuration : 5,
+      timerSeconds: 0
+    }));
   };
-  
+
+  const handleLap = () => {
+    setState(prev => ({
+      ...prev,
+      laps: [...prev.laps, prev.stopwatchElapsed]
+    }));
+  };
+
+  const handlePomodoroPhaseComplete = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // Log completed phase
+    addTimeBlock({
+      title: `Pomodoro - ${state.pomodoroPhase === 'work' ? 'Work' : 'Break'} Session`,
+      duration: state.pomodoroPhase === 'work'
+        ? state.workDuration
+        : state.pomodoroPhase === 'shortBreak'
+        ? state.shortBreakDuration
+        : state.longBreakDuration,
+      tagIds: []
+    });
+
+    // Update state for next phase
+    setState(prev => {
+      let nextPhase: PomodoroPhase = 'work';
+      let completedPomodoros = prev.completedPomodoros;
+
+      if (prev.pomodoroPhase === 'work') {
+        completedPomodoros++;
+        nextPhase = completedPomodoros % 4 === 0 ? 'longBreak' : 'shortBreak';
+      }
+
+      return {
+        ...prev,
+        isRunning: false,
+        pomodoroPhase: nextPhase,
+        completedPomodoros,
+        timerMinutes: nextPhase === 'work'
+          ? prev.workDuration
+          : nextPhase === 'shortBreak'
+          ? prev.shortBreakDuration
+          : prev.longBreakDuration,
+        timerSeconds: 0
+      };
+    });
+  };
+
+  const handleTimerComplete = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    addTimeBlock({
+      title: 'Timer Session',
+      duration: state.timerMinutes,
+      tagIds: []
+    });
+
+    setState(prev => ({
+      ...prev,
+      isRunning: false
+    }));
+  };
+
+  const adjustDuration = (
+    type: 'work' | 'shortBreak' | 'longBreak' | 'timer' | 'seconds',
+    amount: number
+  ) => {
+    setState(prev => {
+      const updates: Partial<TimerState> = {};
+
+      switch (type) {
+        case 'work':
+          updates.workDuration = Math.max(1, Math.min(60, prev.workDuration + amount));
+          if (prev.pomodoroPhase === 'work') {
+            updates.timerMinutes = updates.workDuration;
+            updates.timerSeconds = 0;
+          }
+          break;
+        case 'shortBreak':
+          updates.shortBreakDuration = Math.max(1, Math.min(30, prev.shortBreakDuration + amount));
+          if (prev.pomodoroPhase === 'shortBreak') {
+            updates.timerMinutes = updates.shortBreakDuration;
+            updates.timerSeconds = 0;
+          }
+          break;
+        case 'longBreak':
+          updates.longBreakDuration = Math.max(5, Math.min(45, prev.longBreakDuration + amount));
+          if (prev.pomodoroPhase === 'longBreak') {
+            updates.timerMinutes = updates.longBreakDuration;
+            updates.timerSeconds = 0;
+          }
+          break;
+        case 'timer':
+          updates.timerMinutes = Math.max(0, Math.min(99, prev.timerMinutes + amount));
+          break;
+        case 'seconds':
+          updates.timerSeconds = Math.max(0, Math.min(59, prev.timerSeconds + amount));
+          break;
+      }
+
+      return { ...prev, ...updates };
+    });
+  };
+
+  const getDisplayTime = () => {
+    if (state.activeTab === 'stopwatch') {
+      return formatStopwatchTime(state.stopwatchElapsed);
+    } else if (state.activeTab === 'timer') {
+      return formatCountdownTime(state.timerMinutes * 60 + state.timerSeconds);
+    }
+    return '00:00';
+  };
+
   return (
     <div className="timer-module">
-      {!activeTimer && !showTimerForm && (
-        <button className="timer-toggle\" onClick={() => setShowTimerForm(true)}>
-          <TimerIcon size={18} />
-          <span>Start Timer</span>
+      <div className="timer-header">
+        <h2 className="timer-title">Timei</h2>
+        <div className="timer-controls-top">
+          <button className="general-dropdown">
+            General
+            <ChevronDown size={16} />
+          </button>
+          <button className="add-button">
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="timer-tabs">
+        <button
+          className={`timer-tab ${state.activeTab === 'stopwatch' ? 'active' : ''}`}
+          onClick={() => setState(prev => ({ ...prev, activeTab: 'stopwatch' }))}
+        >
+          Stopwatch
         </button>
+        <button
+          className={`timer-tab ${state.activeTab === 'timer' ? 'active' : ''}`}
+          onClick={() => setState(prev => ({ ...prev, activeTab: 'timer' }))}
+        >
+          Timer
+        </button>
+        <button
+          className={`timer-tab ${state.activeTab === 'timeline' ? 'active' : ''}`}
+          onClick={() => setState(prev => ({ ...prev, activeTab: 'timeline' }))}
+        >
+          Timeline
+        </button>
+      </div>
+
+      {state.activeTab === 'timer' && (
+        <div className="pomodoro-toggle">
+          <span className="pomodoro-toggle-label">Pomodoro Mode</span>
+          <div
+            className={`toggle-switch ${state.isPomodoroMode ? 'active' : ''}`}
+            onClick={() => setState(prev => ({ ...prev, isPomodoroMode: !prev.isPomodoroMode }))}
+          />
+        </div>
       )}
-      
-      {showTimerForm && (
-        <div className="timer-form">
-          <div className="timer-form-header">
-            <h3>Set Up Timer</h3>
-            <button className="close-button" onClick={() => setShowTimerForm(false)}>
-              <X size={16} />
-            </button>
+
+      {state.activeTab === 'timer' && state.isPomodoroMode && (
+        <>
+          <div className="pomodoro-phase">
+            <span className="phase-label">Phase: {state.pomodoroPhase === 'work' ? 'Work' : state.pomodoroPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}</span>
+            <span className="completed-count">
+              Completed: {state.completedPomodoros} 🍅
+            </span>
           </div>
-          
-          <div className="timer-form-body">
-            <div className="form-group">
-              <label>Timer Type</label>
-              <div className="timer-type-selector">
-                <button
-                  className={timerType === 'countdown' ? 'active' : ''}
-                  onClick={() => setTimerType('countdown')}
-                >
-                  <Clock size={16} />
-                  <span>Countdown</span>
-                </button>
-                <button
-                  className={timerType === 'stopwatch' ? 'active' : ''}
-                  onClick={() => setTimerType('stopwatch')}
-                >
-                  <TimerIcon size={16} />
-                  <span>Stopwatch</span>
-                </button>
-                <button
-                  className={timerType === 'pomodoro' ? 'active' : ''}
-                  onClick={() => setTimerType('pomodoro')}
-                >
-                  <Tomato size={16} />
-                  <span>Pomodoro</span>
-                </button>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="timer-title">Title</label>
+          <div className="phase-indicators">
+            {[0, 1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className={`phase-dot ${index === state.completedPomodoros % 4 ? 'active' : ''}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className={`timer-display ${state.activeTab === 'timer' && state.isPomodoroMode ? 'red' : ''}`}>
+        {getDisplayTime()}
+      </div>
+
+      <div className="timer-controls">
+        <button
+          className="timer-button primary"
+          onClick={state.isRunning ? pauseTimer : startTimer}
+        >
+          {state.isRunning ? <Pause size={20} /> : <Play size={20} />}
+          {state.isRunning ? 'Pause' : 'Start'}
+        </button>
+        <button className="timer-button secondary" onClick={resetTimer}>
+          <RotateCcw size={20} />
+          Reset
+        </button>
+        {state.activeTab === 'stopwatch' && (
+          <button className="timer-button secondary" onClick={handleLap}>
+            Lap
+          </button>
+        )}
+      </div>
+
+      {state.activeTab === 'timer' && !state.isPomodoroMode && (
+        <div className="duration-controls">
+          <div className="duration-control">
+            <div className="duration-control-label">Minutes</div>
+            <div className="duration-input-group">
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('timer', -1)}
+              >
+                -
+              </button>
               <input
                 type="text"
-                id="timer-title"
-                value={timerTitle}
-                onChange={(e) => setTimerTitle(e.target.value)}
-                placeholder="What are you working on?"
-                required
+                className="duration-value"
+                value={state.timerMinutes}
+                readOnly
               />
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('timer', 1)}
+              >
+                +
+              </button>
             </div>
-            
-            {timerType !== 'stopwatch' && (
-              <div className="form-group">
-                <label htmlFor="timer-duration">
-                  {timerType === 'pomodoro' ? 'Work Duration (minutes)' : 'Duration (minutes)'}
-                </label>
-                <input
-                  type="number"
-                  id="timer-duration"
-                  value={timerType === 'pomodoro' ? pomodoroWork : timerDuration}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (timerType === 'pomodoro') {
-                      setPomodoroWork(value);
-                    } else {
-                      setTimerDuration(value);
-                    }
-                  }}
-                  min="1"
-                  max="120"
-                  required
-                />
-              </div>
-            )}
-            
-            {timerType === 'pomodoro' && (
-              <div className="form-group">
-                <label htmlFor="pomodoro-break">Break Duration (minutes)</label>
-                <input
-                  type="number"
-                  id="pomodoro-break"
-                  value={pomodoroBreak}
-                  onChange={(e) => setPomodoroBreak(parseInt(e.target.value))}
-                  min="1"
-                  max="30"
-                  required
-                />
-              </div>
-            )}
-            
-            <div className="form-group">
-              <label>Tags</label>
-              <div className="tags-container">
-                {tags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    className={`tag-button ${selectedTags.includes(tag.id) ? 'selected' : ''}`}
-                    style={{
-                      backgroundColor: selectedTags.includes(tag.id) ? tag.color : `${tag.color}20`,
-                      color: selectedTags.includes(tag.id) ? 'white' : tag.color
-                    }}
-                    onClick={() => toggleTag(tag.id)}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
+          </div>
+          <div className="duration-control">
+            <div className="duration-control-label">Seconds</div>
+            <div className="duration-input-group">
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('seconds', -1)}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                className="duration-value"
+                value={state.timerSeconds}
+                readOnly
+              />
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('seconds', 1)}
+              >
+                +
+              </button>
             </div>
-            
-            <button className="start-timer-button" onClick={startTimer}>
-              Start Timer
-            </button>
           </div>
         </div>
       )}
-      
-      {activeTimer && (
-        <div className="active-timer">
-          <div className="timer-header">
-            <div className="timer-type">
-              {activeTimer.type === 'stopwatch' ? (
-                <Clock size={18} />
-              ) : activeTimer.type === 'pomodoro' ? (
-                <Tomato size={18} />
-              ) : (
-                <TimerIcon size={18} />
-              )}
-              <span>
-                {activeTimer.type === 'stopwatch'
-                  ? 'Stopwatch'
-                  : activeTimer.type === 'pomodoro'
-                  ? `Pomodoro - ${activeTimer.pomodoroIsBreak ? 'Break' : 'Work'}`
-                  : 'Countdown'}
-              </span>
+
+      {state.activeTab === 'timer' && state.isPomodoroMode && (
+        <div className="duration-controls">
+          <div className="duration-control">
+            <div className="duration-control-label">Work</div>
+            <div className="duration-input-group">
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('work', -1)}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                className="duration-value"
+                value={`${state.workDuration}m`}
+                readOnly
+              />
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('work', 1)}
+              >
+                +
+              </button>
             </div>
-            <div className="timer-title">{activeTimer.title}</div>
-            {activeTimer.tagIds.length > 0 && (
-              <div className="timer-tags">
-                {activeTimer.tagIds.map(tagId => {
-                  const tag = tags.find(t => t.id === tagId);
-                  if (!tag) return null;
-                  return (
-                    <span
-                      key={tag.id}
-                      className="timer-tag"
-                      style={{
-                        backgroundColor: `${tag.color}20`,
-                        color: tag.color
-                      }}
-                    >
-                      {tag.name}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
           </div>
-          
-          <div className="timer-display">{getTimerDisplay()}</div>
-          
-          <div className="timer-controls">
-            {activeTimer.type === 'stopwatch' ? (
-              <>
-                {activeTimer.running ? (
-                  <button className="timer-control pause\" onClick={pauseTimer}>
-                    <Pause size={20} />
-                  </button>
-                ) : (
-                  <button className="timer-control play" onClick={resumeTimer}>
-                    <Play size={20} />
-                  </button>
-                )}
-                <button className="timer-control finish" onClick={finishStopwatch}>
-                  <CheckSquare size={20} />
-                </button>
-                <button className="timer-control restart" onClick={restartStopwatch}>
-                  <RotateCcw size={20} />
-                </button>
-                <button className="timer-control stop" onClick={stopTimer}>
-                  <Square size={20} />
-                </button>
-              </>
-            ) : (
-              <>
-                {activeTimer.running ? (
-                  <button className="timer-control pause\" onClick={pauseTimer}>
-                    <Pause size={20} />
-                  </button>
-                ) : (
-                  <button className="timer-control play" onClick={resumeTimer}>
-                    <Play size={20} />
-                  </button>
-                )}
-                <button className="timer-control stop" onClick={stopTimer}>
-                  <Square size={20} />
-                </button>
-              </>
-            )}
+          <div className="duration-control">
+            <div className="duration-control-label">Short Break</div>
+            <div className="duration-input-group">
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('shortBreak', -1)}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                className="duration-value"
+                value={`${state.shortBreakDuration}m`}
+                readOnly
+              />
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('shortBreak', 1)}
+              >
+                +
+              </button>
+            </div>
           </div>
+          <div className="duration-control">
+            <div className="duration-control-label">Long Break</div>
+            <div className="duration-input-group">
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('longBreak', -1)}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                className="duration-value"
+                value={`${state.longBreakDuration}m`}
+                readOnly
+              />
+              <button
+                className="duration-button"
+                onClick={() => adjustDuration('longBreak', 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {state.activeTab === 'stopwatch' && state.laps.length > 0 && (
+        <div className="laps-container">
+          {state.laps.map((lapTime, index) => (
+            <div key={index} className="lap-item">
+              <span className="lap-number">Lap {index + 1}</span>
+              <span className="lap-time">{formatStopwatchTime(lapTime)}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
